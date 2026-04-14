@@ -80,3 +80,61 @@ class PublishSnapshotResponse(BaseModel):
     product_id: uuid.UUID
     version: int
     published_at: datetime
+
+
+class DiagramDraftRequest(BaseModel):
+    """Diagram fields may be incomplete while editing."""
+
+    svg_storage_key: str | None = Field(default=None, max_length=1024)
+    raster_fallback_storage_key: str | None = Field(default=None, max_length=1024)
+    diagram_title: str | None = Field(default=None, max_length=512)
+    alt_summary: str | None = None
+
+
+class BomLineDraftRequest(BaseModel):
+    part_id: uuid.UUID
+    quantity: float = Field(default=1, ge=0)
+    sort_order: int = 0
+    bom_group: str | None = Field(default=None, max_length=128)
+    show_on_diagram: bool = True
+
+
+class PartDisplayDraftRequest(BaseModel):
+    part_id: uuid.UUID
+    public_code: str = ""
+    public_description: str = ""
+    locale: str = Field(default="en", min_length=2, max_length=16)
+
+
+class HotspotDraftRequest(BaseModel):
+    part_id: uuid.UUID
+    geometry: dict = Field(default_factory=dict)
+    z_order: int = 0
+    label_anchor: dict | None = None
+
+
+class ProductDraftPayload(BaseModel):
+    """Persisted editor state (partial / work-in-progress)."""
+
+    publish_notes: str | None = None
+    search_blob: str | None = None
+    diagram: DiagramDraftRequest | None = None
+    bill_of_materials: list[BomLineDraftRequest] = Field(default_factory=list)
+    part_displays: list[PartDisplayDraftRequest] = Field(default_factory=list)
+    diagram_hotspots: list[HotspotDraftRequest] = Field(default_factory=list)
+
+
+class ProductDraftDocument(BaseModel):
+    product_id: uuid.UUID
+    payload: ProductDraftPayload
+    updated_at: datetime | None = None
+    updated_by_user_id: uuid.UUID | None = None
+
+
+class UploadAssetResponse(BaseModel):
+    id: uuid.UUID
+    storage_key: str
+    kind: str
+    original_filename: str
+    content_type: str
+    byte_size: int

@@ -41,8 +41,20 @@ Protected optionally: set `SHADE_CATALOG_ADMIN_API_TOKEN` in `.env`, then send `
 | POST | `/api/v1/admin/parts` | Create canonical part (engineering id / description) |
 | POST | `/api/v1/admin/products` | Create draft KMAT in a category (`category_slug`, `slug`, `name`, …) |
 | POST | `/api/v1/admin/products/{product_id}/publish` | Publish a new snapshot (bumps `version`), updates `current_published_snapshot_id`, appends `audit_log` |
+| POST | `/api/v1/admin/uploads` | Multipart upload of **SVG** or **PDF** (magic-byte sniffing); returns `storage_key` for diagram/spec references |
+
+**File uploads:** files are stored under `SHADE_CATALOG_UPLOAD_DIR` (default `data/uploads`). Max size `SHADE_CATALOG_MAX_UPLOAD_BYTES` (default 25MB). Use the returned **`storage_key`** as `svg_storage_key` in drafts/publish (and for PDF spec links later). The public read URL is **`GET /api/v1/assets/{storage_key}`** (served only if the file is registered in `uploaded_asset`).
 
 **Publish body** must include `bill_of_materials` and `part_displays`. For locale `en`, there must be **exactly one** display row per BOM `part_id` (same set as the BOM). `diagram_hotspots` may only reference parts that appear in the BOM. Each publish creates a new `product_snapshot` row (immutable history).
+
+### Product draft (editor state)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/admin/products/{product_id}/draft` | Load saved draft or empty defaults (`updated_at` null if never saved) |
+| PUT | `/api/v1/admin/products/{product_id}/draft` | Replace persisted draft (`product_draft.payload` JSONB); writes `audit_log` (`product_draft.upserted`) |
+
+Draft shape matches **work-in-progress** fields (optional diagram, empty strings allowed on labels). Publishing still uses **`POST .../publish`** with a full `PublishSnapshotRequest` body (the client can load GET draft and map it into that payload when ready).
 
 ### Tests
 

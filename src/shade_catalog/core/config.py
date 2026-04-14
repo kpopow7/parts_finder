@@ -1,5 +1,7 @@
 from functools import lru_cache
+from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,6 +23,15 @@ class Settings(BaseSettings):
     # If set, admin routes require Authorization: Bearer <token>.
     # If unset, admin is open (development only).
     admin_api_token: str | None = None
+
+    # Local filesystem storage for uploads (SVG/PDF). Create this directory on deploy.
+    upload_dir: Path = Path("data/uploads")
+    max_upload_bytes: int = 25 * 1024 * 1024
+
+    @field_validator("upload_dir", mode="before")
+    @classmethod
+    def _coerce_upload_dir(cls, v: str | Path) -> Path:
+        return Path(v)
 
 
 @lru_cache

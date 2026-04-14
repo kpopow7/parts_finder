@@ -13,6 +13,7 @@ from shade_catalog.models.category import Category
 from shade_catalog.models.enums import ProductStatus
 
 if TYPE_CHECKING:
+    from shade_catalog.models.product_draft import ProductDraft
     from shade_catalog.models.snapshot import ProductSnapshot
 
 
@@ -55,4 +56,10 @@ class Product(Base):
         "ProductSnapshot",
         foreign_keys=[current_published_snapshot_id],
         overlaps="snapshots,product",
+    )
+    draft: Mapped[ProductDraft | None] = relationship(
+        "ProductDraft",
+        back_populates="product",
+        uselist=False,
+        cascade="all, delete-orphan",
     )

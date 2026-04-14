@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,10 +13,14 @@ from shade_catalog.schemas.admin import (
     CreatePartResponse,
     CreateProductRequest,
     CreateProductResponse,
+    ProductDraftDocument,
+    ProductDraftPayload,
     PublishSnapshotRequest,
     PublishSnapshotResponse,
+    UploadAssetResponse,
 )
-from shade_catalog.services import admin_products
+from shade_catalog.services import admin_products, upload_assets
+from shade_catalog.services import product_draft as product_draft_service
 from shade_catalog.services.publish import (
     ProductNotFoundError,
     PublishValidationError,
@@ -70,6 +74,40 @@ async def admin_create_product(
     )
 
 
+@admin_router.get(
+    "/products/{product_id}/draft",
+    response_model=ProductDraftDocument,
+)
+async def admin_get_product_draft(
+    product_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db),
+) -> ProductDraftDocument:
+    try:
+        return await product_draft_service.get_product_draft(session, product_id=product_id)
+    except ProductNotFoundError as e:
+        raise HTTPException(status_code=404, detail="Product not found") from e
+
+
+@admin_router.put(
+    "/products/{product_id}/draft",
+    response_model=ProductDraftDocument,
+)
+async def admin_put_product_draft(
+    product_id: uuid.UUID,
+    body: ProductDraftPayload,
+    session: AsyncSession = Depends(get_db),
+) -> ProductDraftDocument:
+    try:
+        async with session.begin():
+            return await product_draft_service.upsert_product_draft(
+                session,
+                product_id=product_id,
+                payload=body,
+            )
+    except ProductNotFoundError as e:
+        raise HTTPException(status_code=404, detail="Product not found") from e
+
+
 @admin_router.post(
     "/products/{product_id}/publish",
     response_model=PublishSnapshotResponse,
@@ -87,3 +125,20 @@ async def admin_publish_product(
         raise HTTPException(status_code=404, detail="Product not found") from e
     except PublishValidationError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@admin_router.post("/uploads", response_model=UploadAssetResponse, status_code=201)
+async def admin_upload_file(
+    session: AsyncSession = Depends(get_db),
+    file: UploadFile = File(...),
+) -> UploadAssetResponse:
+    async with session.begin():
+        r = await upload_assets.save_uploaded_file(session, file)
+    return UploadAssetResponse(
+        id=r.id,
+        storage_key=r.storage_key,
+        kind=r.kind.value,
+        original_filename=r.original_filename,
+        content_type=r.content_type,
+        byte_size=r.byte_size,
+    )
