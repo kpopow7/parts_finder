@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     # postgresql+psycopg://... for Alembic
     sync_database_url: str = "postgresql+psycopg://shade:shade@127.0.0.1:5432/shade_catalog"
 
+    # If set, admin routes require Authorization: Bearer <token>.
+    # If unset, admin is open (development only).
+    admin_api_token: str | None = None
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -15,9 +15,40 @@ pip install -e ".[dev]"
 ```
 
 4. Run migrations from the **project root** (so `.env` is found): `alembic upgrade head`
-5. Run API: `uvicorn shade_catalog.main:app --reload`
+5. (Optional) Load demo data for Metal blinds: `python -m shade_catalog.seed_metal_blinds`
+6. Run API: `uvicorn shade_catalog.main:app --reload`
 
 Open http://127.0.0.1:8000/docs for OpenAPI.
+
+### Public catalog API (v1)
+
+After seeding, these endpoints return data:
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/categories` | Categories with published product counts |
+| GET | `/api/v1/categories/{category_slug}/products` | Published KMATs in a category |
+| GET | `/api/v1/categories/{category_slug}/products/{product_slug}` | Published snapshot: diagram metadata, BOM, hotspots (optional `locale` query, default `en`) |
+
+Demo slugs: category `metal-blinds`, product `standard-metal-blind`.
+
+### Admin API (draft → publish)
+
+Protected optionally: set `SHADE_CATALOG_ADMIN_API_TOKEN` in `.env`, then send `Authorization: Bearer <token>` on admin routes. If unset, admin is **open** (development only).
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/v1/admin/parts` | Create canonical part (engineering id / description) |
+| POST | `/api/v1/admin/products` | Create draft KMAT in a category (`category_slug`, `slug`, `name`, …) |
+| POST | `/api/v1/admin/products/{product_id}/publish` | Publish a new snapshot (bumps `version`), updates `current_published_snapshot_id`, appends `audit_log` |
+
+**Publish body** must include `bill_of_materials` and `part_displays`. For locale `en`, there must be **exactly one** display row per BOM `part_id` (same set as the BOM). `diagram_hotspots` may only reference parts that appear in the BOM. Each publish creates a new `product_snapshot` row (immutable history).
+
+### Tests
+
+```bash
+pytest tests -q
+```
 
 ## Troubleshooting
 
