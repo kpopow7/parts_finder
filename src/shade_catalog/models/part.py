@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
@@ -9,6 +10,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from shade_catalog.db.base import Base
 from shade_catalog.models.enums import PartStatus
+
+if TYPE_CHECKING:
+    from shade_catalog.models.uploaded_asset import UploadedAsset
 
 
 class Part(Base):
@@ -25,6 +29,12 @@ class Part(Base):
     superseded_by_part_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("part.id"), nullable=True
     )
+    image_uploaded_asset_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("uploaded_asset.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -36,4 +46,8 @@ class Part(Base):
         "Part",
         remote_side="Part.id",
         foreign_keys=[superseded_by_part_id],
+    )
+    image_asset: Mapped["UploadedAsset | None"] = relationship(
+        "UploadedAsset",
+        foreign_keys=[image_uploaded_asset_id],
     )

@@ -9,21 +9,74 @@ from shade_catalog.models.category import Category
 from shade_catalog.models.enums import PartStatus, ProductStatus
 from shade_catalog.models.part import Part
 from shade_catalog.models.product import Product
-from shade_catalog.schemas.admin import CreatePartRequest, CreateProductRequest
+from shade_catalog.models.uploaded_asset import UploadedAsset, UploadedAssetKind
+from shade_catalog.schemas.admin import (
+    CreateCategoryRequest,
+    CreatePartRequest,
+    CreateProductRequest,
+    UpdatePartRequest,
+)
 
 
 class AdminValidationError(ValueError):
     pass
 
 
+class PartNotFoundError(Exception):
+    pass
+
+
+_PART_IMAGE_KINDS = frozenset({UploadedAssetKind.JPEG, UploadedAssetKind.PNG})
+
+
+async def create_category(session: AsyncSession, body: CreateCategoryRequest) -> Category:
+    slug = body.slug.strip()
+    name = body.name.strip()
+    if not slug or not name:
+        raise AdminValidationError("slug and name must not be empty after trimming whitespace")
+    cat = Category(
+        id=uuid.uuid4(),
+        slug=slug,
+        name=name,
+        sort_order=body.sort_order,
+    )
+    session.add(cat)
+    await session.flush()
+    return cat
+
+
+async def _validate_part_image_asset(session: AsyncSession, asset_id: uuid.UUID | None) -> None:
+    if asset_id is None:
+        return
+    asset = await session.get(UploadedAsset, asset_id)
+    if asset is None:
+        raise AdminValidationError("image_uploaded_asset_id: uploaded asset not found")
+    if asset.kind not in _PART_IMAGE_KINDS:
+        raise AdminValidationError(
+            "image_uploaded_asset_id: must reference a JPEG or PNG from POST /api/v1/admin/uploads"
+        )
+
+
 async def create_part(session: AsyncSession, body: CreatePartRequest) -> Part:
+    await _validate_part_image_asset(session, body.image_uploaded_asset_id)
     part = Part(
         id=uuid.uuid4(),
         internal_part_number=body.internal_part_number.strip(),
         internal_description=body.internal_description,
         status=PartStatus.ACTIVE,
+        image_uploaded_asset_id=body.image_uploaded_asset_id,
     )
     session.add(part)
+    await session.flush()
+    return part
+
+
+async def update_part(session: AsyncSession, *, part_id: uuid.UUID, body: UpdatePartRequest) -> Part:
+    part = await session.get(Part, part_id)
+    if part is None:
+        raise PartNotFoundError
+    await _validate_part_image_asset(session, body.image_uploaded_asset_id)
+    part.image_uploaded_asset_id = body.image_uploaded_asset_id
     await session.flush()
     return part
 

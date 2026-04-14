@@ -18,7 +18,9 @@ def test_openapi_lists_v1_catalog_paths() -> None:
     assert "/api/v1/categories" in paths
     assert "/api/v1/categories/{category_slug}/products" in paths
     assert "/api/v1/categories/{category_slug}/products/{product_slug}" in paths
+    assert "/api/v1/admin/categories" in paths
     assert "/api/v1/admin/parts" in paths
+    assert "/api/v1/admin/parts/{part_id}" in paths
     assert "/api/v1/admin/products" in paths
     assert "/api/v1/admin/products/{product_id}/publish" in paths
     assert "/api/v1/admin/products/{product_id}/draft" in paths

@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     # If unset, admin is open (development only).
     admin_api_token: str | None = None
 
-    # Local filesystem storage for uploads (SVG/PDF). Create this directory on deploy.
+    # Local filesystem storage for uploads (SVG/PDF/JPEG/PNG). Create this directory on deploy.
     upload_dir: Path = Path("data/uploads")
     max_upload_bytes: int = 25 * 1024 * 1024
 

@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class CreatePartRequest(BaseModel):
     internal_part_number: str = Field(min_length=1, max_length=128)
     internal_description: str | None = None
+    image_uploaded_asset_id: uuid.UUID | None = None
 
 
 class CreatePartResponse(BaseModel):
@@ -16,6 +17,28 @@ class CreatePartResponse(BaseModel):
 
     id: uuid.UUID
     internal_part_number: str
+    image_uploaded_asset_id: uuid.UUID | None = None
+
+
+class UpdatePartRequest(BaseModel):
+    """Set or clear the optional part photo (JPEG/PNG upload id from POST /admin/uploads)."""
+
+    image_uploaded_asset_id: uuid.UUID | None
+
+
+class CreateCategoryRequest(BaseModel):
+    slug: str = Field(min_length=1, max_length=128)
+    name: str = Field(min_length=1, max_length=255)
+    sort_order: int = Field(default=0)
+
+
+class CreateCategoryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    slug: str
+    name: str
+    sort_order: int
 
 
 class CreateProductRequest(BaseModel):

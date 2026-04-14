@@ -9,10 +9,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from shade_catalog.api.deps import require_admin
 from shade_catalog.db.session import get_db
 from shade_catalog.schemas.admin import (
+    CreateCategoryRequest,
+    CreateCategoryResponse,
     CreatePartRequest,
     CreatePartResponse,
     CreateProductRequest,
     CreateProductResponse,
+    UpdatePartRequest,
     ParseSpecResponse,
     ProductDraftDocument,
     ProductDraftPayload,
@@ -37,6 +40,29 @@ admin_router = APIRouter(
 )
 
 
+@admin_router.post("/categories", response_model=CreateCategoryResponse, status_code=201)
+async def admin_create_category(
+    body: CreateCategoryRequest,
+    session: AsyncSession = Depends(get_db),
+) -> CreateCategoryResponse:
+    try:
+        async with session.begin():
+            cat = await admin_products.create_category(session, body)
+    except admin_products.AdminValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except IntegrityError as e:
+        raise HTTPException(
+            status_code=409,
+            detail="Category slug already exists or constraint violated",
+        ) from e
+    return CreateCategoryResponse(
+        id=cat.id,
+        slug=cat.slug,
+        name=cat.name,
+        sort_order=cat.sort_order,
+    )
+
+
 @admin_router.post("/parts", response_model=CreatePartResponse, status_code=201)
 async def admin_create_part(
     body: CreatePartRequest,
@@ -45,12 +71,41 @@ async def admin_create_part(
     try:
         async with session.begin():
             part = await admin_products.create_part(session, body)
+    except admin_products.AdminValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except IntegrityError as e:
         raise HTTPException(
             status_code=409,
             detail="Part number already exists or constraint violated",
         ) from e
-    return CreatePartResponse(id=part.id, internal_part_number=part.internal_part_number)
+    return CreatePartResponse(
+        id=part.id,
+        internal_part_number=part.internal_part_number,
+        image_uploaded_asset_id=part.image_uploaded_asset_id,
+    )
+
+
+@admin_router.patch(
+    "/parts/{part_id}",
+    response_model=CreatePartResponse,
+)
+async def admin_update_part(
+    part_id: uuid.UUID,
+    body: UpdatePartRequest,
+    session: AsyncSession = Depends(get_db),
+) -> CreatePartResponse:
+    try:
+        async with session.begin():
+            part = await admin_products.update_part(session, part_id=part_id, body=body)
+    except admin_products.PartNotFoundError as e:
+        raise HTTPException(status_code=404, detail="Part not found") from e
+    except admin_products.AdminValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return CreatePartResponse(
+        id=part.id,
+        internal_part_number=part.internal_part_number,
+        image_uploaded_asset_id=part.image_uploaded_asset_id,
+    )
 
 
 @admin_router.post("/products", response_model=CreateProductResponse, status_code=201)

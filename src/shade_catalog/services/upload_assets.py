@@ -28,6 +28,10 @@ def _normalize_content_type(kind: UploadedAssetKind, raw: str | None) -> str:
         return raw.strip()
     if kind == UploadedAssetKind.SVG:
         return "image/svg+xml"
+    if kind == UploadedAssetKind.JPEG:
+        return "image/jpeg"
+    if kind == UploadedAssetKind.PNG:
+        return "image/png"
     return "application/pdf"
 
 
@@ -43,7 +47,7 @@ async def save_uploaded_file(session: AsyncSession, file: UploadFile) -> UploadR
     if kind is None:
         raise HTTPException(
             status_code=415,
-            detail="Unsupported file type (only SVG or PDF are accepted)",
+            detail="Unsupported file type (only SVG, PDF, JPEG, or PNG are accepted)",
         )
 
     storage_key, _ = local_storage.build_storage_key(kind)

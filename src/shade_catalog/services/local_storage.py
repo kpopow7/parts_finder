@@ -6,7 +6,7 @@ from pathlib import Path
 
 from shade_catalog.models.uploaded_asset import UploadedAssetKind
 
-_SAFE_KEY_RE = re.compile(r"^[a-z0-9]+/[a-f0-9\-]+\.(svg|pdf)$")
+_SAFE_KEY_RE = re.compile(r"^[a-z0-9]+/[a-f0-9\-]+\.(svg|pdf|jpe?g|png)$")
 
 
 def _looks_like_svg(data: bytes) -> bool:
@@ -21,14 +21,28 @@ def detect_kind(data: bytes) -> UploadedAssetKind | None:
     if len(data) >= 4 and data[:4] == b"%PDF":
         return UploadedAssetKind.PDF
 
+    if len(data) >= 8 and data[:8] == b"\x89PNG\r\n\x1a\n":
+        return UploadedAssetKind.PNG
+
+    if len(data) >= 3 and data[:3] == b"\xff\xd8\xff":
+        return UploadedAssetKind.JPEG
+
     if _looks_like_svg(data):
         return UploadedAssetKind.SVG
 
     return None
 
 
+_KIND_EXT: dict[UploadedAssetKind, str] = {
+    UploadedAssetKind.SVG: ".svg",
+    UploadedAssetKind.PDF: ".pdf",
+    UploadedAssetKind.JPEG: ".jpg",
+    UploadedAssetKind.PNG: ".png",
+}
+
+
 def build_storage_key(kind: UploadedAssetKind) -> tuple[str, str]:
-    ext = ".svg" if kind == UploadedAssetKind.SVG else ".pdf"
+    ext = _KIND_EXT[kind]
     prefix = kind.value
     name = f"{uuid.uuid4()}{ext}"
     return f"{prefix}/{name}", name

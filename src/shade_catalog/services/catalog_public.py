@@ -8,6 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from shade_catalog.models.category import Category
 from shade_catalog.models.enums import ProductStatus
+from shade_catalog.models.part import Part
 from shade_catalog.models.product import Product
 from shade_catalog.models.snapshot import ProductSnapshot, SnapshotPartDisplay
 from shade_catalog.schemas.catalog import (
@@ -120,9 +121,29 @@ async def get_published_product_detail(
         return (d.public_code, d.public_description)
 
     bom_lines = sorted(snap.bom_lines, key=lambda r: (r.sort_order, str(r.id)))
+    part_ids = [row.part_id for row in bom_lines]
+    parts_by_id: dict[uuid.UUID, Part] = {}
+    if part_ids:
+        stmt_parts = (
+            select(Part)
+            .options(selectinload(Part.image_asset))
+            .where(Part.id.in_(part_ids))
+        )
+        for p in (await session.scalars(stmt_parts)).all():
+            parts_by_id[p.id] = p
+
     bom_public: list[BomLinePublic] = []
     for row in bom_lines:
         code, desc = display_for(row.part_id)
+        img_url: str | None = None
+        img_key: str | None = None
+        img_ct: str | None = None
+        p = parts_by_id.get(row.part_id)
+        if p is not None and p.image_asset is not None:
+            a = p.image_asset
+            img_key = a.storage_key
+            img_ct = a.content_type
+            img_url = f"/api/v1/assets/{a.storage_key}"
         bom_public.append(
             BomLinePublic(
                 part_id=row.part_id,
@@ -132,6 +153,9 @@ async def get_published_product_detail(
                 show_on_diagram=row.show_on_diagram,
                 public_code=code,
                 public_description=desc,
+                part_image_asset_url_path=img_url,
+                part_image_storage_key=img_key,
+                part_image_content_type=img_ct,
             )
         )
 

@@ -15,6 +15,8 @@ from shade_catalog.db.base import Base
 class UploadedAssetKind(str, Enum):
     SVG = "svg"
     PDF = "pdf"
+    JPEG = "jpeg"
+    PNG = "png"
 
 
 class UploadedAsset(Base):
