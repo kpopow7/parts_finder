@@ -13,6 +13,7 @@ from shade_catalog.schemas.admin import (
     CreatePartResponse,
     CreateProductRequest,
     CreateProductResponse,
+    ParseSpecResponse,
     ProductDraftDocument,
     ProductDraftPayload,
     ProductSourceDocumentResponse,
@@ -21,7 +22,7 @@ from shade_catalog.schemas.admin import (
     SourceDocumentCreateRequest,
     UploadAssetResponse,
 )
-from shade_catalog.services import admin_products, source_documents_admin, upload_assets
+from shade_catalog.services import admin_products, source_documents_admin, spec_parser, upload_assets
 from shade_catalog.services import product_draft as product_draft_service
 from shade_catalog.services.publish import (
     ProductNotFoundError,
@@ -143,6 +144,43 @@ async def admin_upload_file(
         original_filename=r.original_filename,
         content_type=r.content_type,
         byte_size=r.byte_size,
+    )
+
+
+@admin_router.get("/uploads/{uploaded_asset_id}/parse-spec", response_model=ParseSpecResponse)
+async def admin_parse_spec_pdf(
+    uploaded_asset_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db),
+) -> ParseSpecResponse:
+    try:
+        result = await spec_parser.parse_uploaded_spec_pdf(
+            session,
+            uploaded_asset_id=uploaded_asset_id,
+        )
+    except spec_parser.SpecParserError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    return ParseSpecResponse(
+        source_asset_id=result.source_asset_id,
+        original_filename=result.original_filename,
+        document_title=result.document_title,
+        product_line=result.product_line,
+        table_of_contents=result.table_of_contents,
+        operating_systems=result.operating_systems,
+        size_standards=[
+            {
+                "variant": row.variant,
+                "min_width": row.min_width,
+                "max_width": row.max_width,
+                "min_height": row.min_height,
+                "max_height": row.max_height,
+                "max_area_sqft": row.max_area_sqft,
+            }
+            for row in result.size_standards
+        ],
+        bottom_rail_color_pairs=result.bottom_rail_color_pairs,
+        price_chart_color_map=result.price_chart_color_map,
+        warnings=result.warnings,
     )
 
 

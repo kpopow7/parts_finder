@@ -154,3 +154,40 @@ class ProductSourceDocumentResponse(BaseModel):
     title: str | None
     sort_order: int
     role: str | None
+
+
+class ParsedSpecTocEntry(BaseModel):
+    title: str
+    page_ref: str
+
+
+class ParsedSizeStandardResponse(BaseModel):
+    variant: str
+    min_width: str | None = None
+    max_width: str | None = None
+    min_height: str | None = None
+    max_height: str | None = None
+    max_area_sqft: str | None = None
+
+
+class ParsedColorPairResponse(BaseModel):
+    slat_color: str
+    default_bottom_rail_color: str
+
+
+class ParsedPriceChartColorMapResponse(BaseModel):
+    color: str
+    price_charts: list[str]
+
+
+class ParseSpecResponse(BaseModel):
+    source_asset_id: uuid.UUID
+    original_filename: str
+    document_title: str | None
+    product_line: str | None
+    table_of_contents: list[ParsedSpecTocEntry]
+    operating_systems: list[str]
+    size_standards: list[ParsedSizeStandardResponse]
+    bottom_rail_color_pairs: list[ParsedColorPairResponse]
+    price_chart_color_map: list[ParsedPriceChartColorMapResponse]
+    warnings: list[str]
