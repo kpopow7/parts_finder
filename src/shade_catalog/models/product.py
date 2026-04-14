@@ -14,6 +14,7 @@ from shade_catalog.models.enums import ProductStatus
 
 if TYPE_CHECKING:
     from shade_catalog.models.product_draft import ProductDraft
+    from shade_catalog.models.product_source_document import ProductSourceDocument
     from shade_catalog.models.snapshot import ProductSnapshot
 
 
@@ -61,5 +62,10 @@ class Product(Base):
         "ProductDraft",
         back_populates="product",
         uselist=False,
+        cascade="all, delete-orphan",
+    )
+    source_documents: Mapped[list[ProductSourceDocument]] = relationship(
+        "ProductSourceDocument",
+        back_populates="product",
         cascade="all, delete-orphan",
     )

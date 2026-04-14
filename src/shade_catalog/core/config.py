@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     upload_dir: Path = Path("data/uploads")
     max_upload_bytes: int = 25 * 1024 * 1024
 
+    # Comma-separated browser origins for CORS (e.g. http://localhost:5173).
+    # Empty = no CORS middleware.
+    cors_allow_origins: str = ""
+
     @field_validator("upload_dir", mode="before")
     @classmethod
     def _coerce_upload_dir(cls, v: str | Path) -> Path:

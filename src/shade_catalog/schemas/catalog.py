@@ -61,6 +61,16 @@ class HotspotPublic(BaseModel):
     public_description: str
 
 
+class SourceDocumentPublic(BaseModel):
+    id: uuid.UUID
+    title: str
+    role: str | None = None
+    storage_key: str
+    asset_url_path: str
+    content_type: str
+    kind: str
+
+
 class ProductPublishedDetail(BaseModel):
     category: CategoryRef
     product: ProductSummary
@@ -68,3 +78,19 @@ class ProductPublishedDetail(BaseModel):
     diagram: DiagramPublic | None = None
     bill_of_materials: list[BomLinePublic]
     diagram_hotspots: list[HotspotPublic]
+    source_documents: list[SourceDocumentPublic] = Field(default_factory=list)
+
+
+class SearchHit(BaseModel):
+    category_slug: str
+    category_name: str
+    product_id: uuid.UUID
+    product_slug: str
+    product_name: str
+    subtitle: str | None = None
+
+
+class SearchResponse(BaseModel):
+    query: str
+    total: int
+    results: list[SearchHit]

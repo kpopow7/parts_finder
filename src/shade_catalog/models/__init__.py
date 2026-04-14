@@ -5,6 +5,7 @@ from shade_catalog.models.category import Category
 from shade_catalog.models.part import Part
 from shade_catalog.models.product import Product
 from shade_catalog.models.product_draft import ProductDraft
+from shade_catalog.models.product_source_document import ProductSourceDocument
 from shade_catalog.models.snapshot import (
     ProductSnapshot,
     SnapshotBomLine,
@@ -21,6 +22,7 @@ __all__ = [
     "Part",
     "Product",
     "ProductDraft",
+    "ProductSourceDocument",
     "ProductSnapshot",
     "SnapshotBomLine",
     "SnapshotDiagram",

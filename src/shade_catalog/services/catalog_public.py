@@ -19,6 +19,7 @@ from shade_catalog.schemas.catalog import (
     ProductPublishedDetail,
     ProductSummary,
     PublishedSnapshotMeta,
+    SourceDocumentPublic,
 )
 
 DEFAULT_LOCALE = "en"
@@ -96,6 +97,7 @@ async def get_published_product_detail(
             ),
             selectinload(Product.current_published_snapshot).selectinload(ProductSnapshot.diagram),
             selectinload(Product.current_published_snapshot).selectinload(ProductSnapshot.hotspots),
+            selectinload(Product.source_documents).selectinload("uploaded_asset"),
         )
     )
     product = (await session.scalars(stmt)).first()
@@ -158,6 +160,27 @@ async def get_published_product_detail(
             alt_summary=d.alt_summary,
         )
 
+    doc_public: list[SourceDocumentPublic] = []
+    for d in sorted(
+        product.source_documents or [],
+        key=lambda row: (row.sort_order, str(row.id)),
+    ):
+        asset = d.uploaded_asset
+        if asset is None:
+            continue
+        title = d.title if d.title else asset.original_filename
+        doc_public.append(
+            SourceDocumentPublic(
+                id=d.id,
+                title=title,
+                role=d.role,
+                storage_key=asset.storage_key,
+                asset_url_path=f"/api/v1/assets/{asset.storage_key}",
+                content_type=asset.content_type,
+                kind=asset.kind.value,
+            )
+        )
+
     assert product.category is not None
     return ProductPublishedDetail(
         category=CategoryRef(slug=product.category.slug, name=product.category.name),
@@ -171,4 +194,5 @@ async def get_published_product_detail(
         diagram=diagram_public,
         bill_of_materials=bom_public,
         diagram_hotspots=hotspot_public,
+        source_documents=doc_public,
     )

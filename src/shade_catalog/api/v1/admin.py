@@ -15,11 +15,13 @@ from shade_catalog.schemas.admin import (
     CreateProductResponse,
     ProductDraftDocument,
     ProductDraftPayload,
+    ProductSourceDocumentResponse,
     PublishSnapshotRequest,
     PublishSnapshotResponse,
+    SourceDocumentCreateRequest,
     UploadAssetResponse,
 )
-from shade_catalog.services import admin_products, upload_assets
+from shade_catalog.services import admin_products, source_documents_admin, upload_assets
 from shade_catalog.services import product_draft as product_draft_service
 from shade_catalog.services.publish import (
     ProductNotFoundError,
@@ -142,3 +144,60 @@ async def admin_upload_file(
         content_type=r.content_type,
         byte_size=r.byte_size,
     )
+
+
+@admin_router.get(
+    "/products/{product_id}/source-documents",
+    response_model=list[ProductSourceDocumentResponse],
+)
+async def admin_list_source_documents(
+    product_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db),
+) -> list[ProductSourceDocumentResponse]:
+    try:
+        rows = await source_documents_admin.list_source_documents(session, product_id=product_id)
+    except source_documents_admin.SourceDocumentError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    return [source_documents_admin.to_response(r) for r in rows]
+
+
+@admin_router.post(
+    "/products/{product_id}/source-documents",
+    response_model=ProductSourceDocumentResponse,
+    status_code=201,
+)
+async def admin_create_source_document(
+    product_id: uuid.UUID,
+    body: SourceDocumentCreateRequest,
+    session: AsyncSession = Depends(get_db),
+) -> ProductSourceDocumentResponse:
+    try:
+        async with session.begin():
+            doc = await source_documents_admin.attach_source_document(
+                session,
+                product_id=product_id,
+                body=body,
+            )
+    except source_documents_admin.SourceDocumentError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return source_documents_admin.to_response(doc)
+
+
+@admin_router.delete(
+    "/products/{product_id}/source-documents/{document_id}",
+    status_code=204,
+)
+async def admin_delete_source_document(
+    product_id: uuid.UUID,
+    document_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db),
+) -> None:
+    try:
+        async with session.begin():
+            await source_documents_admin.delete_source_document(
+                session,
+                product_id=product_id,
+                document_id=document_id,
+            )
+    except source_documents_admin.SourceDocumentError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e

@@ -28,7 +28,10 @@ After seeding, these endpoints return data:
 |--------|------|-------------|
 | GET | `/api/v1/categories` | Categories with published product counts |
 | GET | `/api/v1/categories/{category_slug}/products` | Published KMATs in a category |
-| GET | `/api/v1/categories/{category_slug}/products/{product_slug}` | Published snapshot: diagram metadata, BOM, hotspots (optional `locale` query, default `en`) |
+| GET | `/api/v1/categories/{category_slug}/products/{product_slug}` | Published snapshot: diagram, BOM, hotspots, **linked source documents** (optional `locale`) |
+| GET | `/api/v1/search` | Full-text search over **published** products (`q` required; optional `category_slug`, `limit`, `offset`) |
+
+Search uses Postgres **English** full-text on product name/subtitle, category name, and the published snapshot `search_blob`.
 
 Demo slugs: category `metal-blinds`, product `standard-metal-blind`.
 
@@ -42,6 +45,9 @@ Protected optionally: set `SHADE_CATALOG_ADMIN_API_TOKEN` in `.env`, then send `
 | POST | `/api/v1/admin/products` | Create draft KMAT in a category (`category_slug`, `slug`, `name`, …) |
 | POST | `/api/v1/admin/products/{product_id}/publish` | Publish a new snapshot (bumps `version`), updates `current_published_snapshot_id`, appends `audit_log` |
 | POST | `/api/v1/admin/uploads` | Multipart upload of **SVG** or **PDF** (magic-byte sniffing); returns `storage_key` for diagram/spec references |
+| GET | `/api/v1/admin/products/{product_id}/source-documents` | List linked documents for a product |
+| POST | `/api/v1/admin/products/{product_id}/source-documents` | Link an **`uploaded_asset_id`** to the product (optional `title`, `sort_order`, `role`) |
+| DELETE | `/api/v1/admin/products/{product_id}/source-documents/{document_id}` | Remove a link |
 
 **File uploads:** files are stored under `SHADE_CATALOG_UPLOAD_DIR` (default `data/uploads`). Max size `SHADE_CATALOG_MAX_UPLOAD_BYTES` (default 25MB). Use the returned **`storage_key`** as `svg_storage_key` in drafts/publish (and for PDF spec links later). The public read URL is **`GET /api/v1/assets/{storage_key}`** (served only if the file is registered in `uploaded_asset`).
 
@@ -55,6 +61,19 @@ Protected optionally: set `SHADE_CATALOG_ADMIN_API_TOKEN` in `.env`, then send `
 | PUT | `/api/v1/admin/products/{product_id}/draft` | Replace persisted draft (`product_draft.payload` JSONB); writes `audit_log` (`product_draft.upserted`) |
 
 Draft shape matches **work-in-progress** fields (optional diagram, empty strings allowed on labels). Publishing still uses **`POST .../publish`** with a full `PublishSnapshotRequest` body (the client can load GET draft and map it into that payload when ready).
+
+### Frontend (testing without a dedicated UI yet)
+
+This repo is **API-only** right now. You can exercise everything in three ways:
+
+1. **Swagger UI** — with the server running, open `/docs`, authorize if `SHADE_CATALOG_ADMIN_API_TOKEN` is set, then try search, uploads, and admin routes.
+2. **curl / PowerShell** — e.g. `GET http://127.0.0.1:8000/api/v1/search?q=metal` and multipart `POST` to `/api/v1/admin/uploads`.
+3. **A separate SPA** (e.g. Vite + React on port 5173) — set in `.env`:
+   - `SHADE_CATALOG_CORS_ALLOW_ORIGINS=http://localhost:5173,http://127.0.0.1:5173`
+   - Point `fetch` / axios at `http://127.0.0.1:8000` (or your API host).
+   - Use **`asset_url_path`** from product detail as the path part of the URL (prepend the API origin), or build `GET /api/v1/assets/{storage_key}` yourself for SVG `<img src>` / PDF links.
+
+**What a real frontend still needs:** pages for category → product → diagram/BOM, search box calling `/api/v1/search`, admin screens for draft/publish (or internal tools only), and optional auth UI if you lock down admin with a token.
 
 ### Tests
 

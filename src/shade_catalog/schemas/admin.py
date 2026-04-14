@@ -138,3 +138,19 @@ class UploadAssetResponse(BaseModel):
     original_filename: str
     content_type: str
     byte_size: int
+
+
+class SourceDocumentCreateRequest(BaseModel):
+    uploaded_asset_id: uuid.UUID
+    title: str | None = Field(default=None, max_length=512)
+    sort_order: int = 0
+    role: str | None = Field(default=None, max_length=64)
+
+
+class ProductSourceDocumentResponse(BaseModel):
+    id: uuid.UUID
+    product_id: uuid.UUID
+    uploaded_asset_id: uuid.UUID
+    title: str | None
+    sort_order: int
+    role: str | None

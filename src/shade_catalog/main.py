@@ -1,13 +1,25 @@
 from fastapi import Depends, FastAPI
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.middleware.cors import CORSMiddleware
 
 from shade_catalog import __version__
 from shade_catalog.api.v1.router import api_v1_router
+from shade_catalog.core.config import get_settings
 from shade_catalog.db.session import get_db
 
 app = FastAPI(title="Shade Product Catalog API", version=__version__)
 app.include_router(api_v1_router, prefix="/api/v1")
+
+_origins = [o.strip() for o in get_settings().cors_allow_origins.split(",") if o.strip()]
+if _origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 
 @app.get("/health")
