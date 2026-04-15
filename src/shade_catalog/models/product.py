@@ -4,13 +4,13 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint, func
+from sqlalchemy import DateTime, Enum as SQLEnum, ForeignKey, String, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from shade_catalog.db.base import Base
 from shade_catalog.models.category import Category
-from shade_catalog.models.enums import ProductStatus
+from shade_catalog.models.enums import ProductStatus, str_enum_values_callable
 
 if TYPE_CHECKING:
     from shade_catalog.models.product_draft import ProductDraft
@@ -32,7 +32,14 @@ class Product(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     subtitle: Mapped[str | None] = mapped_column(String(512), nullable=True)
     status: Mapped[ProductStatus] = mapped_column(
-        String(32), nullable=False, default=ProductStatus.DRAFT
+        SQLEnum(
+            ProductStatus,
+            native_enum=False,
+            length=32,
+            values_callable=str_enum_values_callable,
+        ),
+        nullable=False,
+        default=ProductStatus.DRAFT,
     )
     current_published_snapshot_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),

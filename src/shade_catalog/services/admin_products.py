@@ -29,6 +29,36 @@ class PartNotFoundError(Exception):
 _PART_IMAGE_KINDS = frozenset({UploadedAssetKind.JPEG, UploadedAssetKind.PNG})
 
 
+async def list_parts(
+    session: AsyncSession,
+    *,
+    limit: int,
+    offset: int,
+) -> list[Part]:
+    stmt = (
+        select(Part)
+        .order_by(Part.internal_part_number)
+        .limit(limit)
+        .offset(offset)
+    )
+    return list((await session.scalars(stmt)).all())
+
+
+async def list_products(
+    session: AsyncSession,
+    *,
+    category_slug: str | None,
+    limit: int,
+    offset: int,
+) -> list[tuple[Product, str]]:
+    stmt = select(Product, Category.slug).join(Category, Product.category_id == Category.id)
+    if category_slug is not None and category_slug.strip():
+        stmt = stmt.where(Category.slug == category_slug.strip())
+    stmt = stmt.order_by(Category.slug, Product.name).limit(limit).offset(offset)
+    rows = (await session.execute(stmt)).all()
+    return [(p, str(cat_slug)) for p, cat_slug in rows]
+
+
 async def create_category(session: AsyncSession, body: CreateCategoryRequest) -> Category:
     slug = body.slug.strip()
     name = body.name.strip()

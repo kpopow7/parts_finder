@@ -4,12 +4,12 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, func
+from sqlalchemy import DateTime, Enum as SQLEnum, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from shade_catalog.db.base import Base
-from shade_catalog.models.enums import PartStatus
+from shade_catalog.models.enums import PartStatus, str_enum_values_callable
 
 if TYPE_CHECKING:
     from shade_catalog.models.uploaded_asset import UploadedAsset
@@ -24,7 +24,14 @@ class Part(Base):
     internal_part_number: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
     internal_description: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[PartStatus] = mapped_column(
-        String(32), nullable=False, default=PartStatus.ACTIVE
+        SQLEnum(
+            PartStatus,
+            native_enum=False,
+            length=32,
+            values_callable=str_enum_values_callable,
+        ),
+        nullable=False,
+        default=PartStatus.ACTIVE,
     )
     superseded_by_part_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("part.id"), nullable=True

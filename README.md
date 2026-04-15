@@ -162,8 +162,10 @@ Protected optionally: set `SHADE_CATALOG_ADMIN_API_TOKEN` in `.env`, then send `
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/api/v1/admin/categories` | Create category (`slug`, `name`, optional `sort_order`) |
+| GET | `/api/v1/admin/parts` | List canonical parts (`id`, part number, description, status, optional image); query `limit` (1–500, default 100), `offset` |
 | POST | `/api/v1/admin/parts` | Create canonical part (optional `image_uploaded_asset_id`: must be a **JPEG or PNG** from uploads) |
 | PATCH | `/api/v1/admin/parts/{part_id}` | Set or clear part photo (`image_uploaded_asset_id`: UUID or `null`) |
+| GET | `/api/v1/admin/products` | List products (`id`, `category_id`, `category_slug`, `slug`, `name`, `status`, …); optional `category_slug` filter; `limit`, `offset` |
 | POST | `/api/v1/admin/products` | Create draft KMAT in a category (`category_slug`, `slug`, `name`, …) |
 | POST | `/api/v1/admin/products/{product_id}/publish` | Publish a new snapshot (bumps `version`), updates `current_published_snapshot_id`, appends `audit_log` |
 | POST | `/api/v1/admin/uploads` | Multipart upload: **SVG**, **PDF**, **JPEG**, or **PNG** (magic-byte sniffing); use SVG keys for published diagrams, PDF for specs, JPEG/PNG for part photos |

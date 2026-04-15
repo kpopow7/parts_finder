@@ -20,6 +20,18 @@ class CreatePartResponse(BaseModel):
     image_uploaded_asset_id: uuid.UUID | None = None
 
 
+class PartListItem(BaseModel):
+    """Row from GET /admin/parts (canonical parts catalog)."""
+
+    model_config = ConfigDict(from_attributes=True, use_enum_values=True)
+
+    id: uuid.UUID
+    internal_part_number: str
+    internal_description: str | None = None
+    status: str
+    image_uploaded_asset_id: uuid.UUID | None = None
+
+
 class UpdatePartRequest(BaseModel):
     """Set or clear the optional part photo (JPEG/PNG upload id from POST /admin/uploads)."""
 
@@ -55,6 +67,18 @@ class CreateProductResponse(BaseModel):
     category_id: uuid.UUID
     slug: str
     name: str
+    status: str
+
+
+class ProductListItem(BaseModel):
+    """Row from GET /admin/products (draft and published KMATs)."""
+
+    id: uuid.UUID
+    category_id: uuid.UUID
+    category_slug: str
+    slug: str
+    name: str
+    subtitle: str | None = None
     status: str
 
 

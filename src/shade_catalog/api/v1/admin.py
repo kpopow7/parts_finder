@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shade_catalog.api.deps import require_admin
 from shade_catalog.db.session import get_db
+from shade_catalog.models.enums import enum_as_str
 from shade_catalog.schemas.admin import (
     CreateCategoryRequest,
     CreateCategoryResponse,
@@ -15,6 +16,8 @@ from shade_catalog.schemas.admin import (
     CreatePartResponse,
     CreateProductRequest,
     CreateProductResponse,
+    PartListItem,
+    ProductListItem,
     UpdatePartRequest,
     ParseSpecResponse,
     ProductDraftDocument,
@@ -61,6 +64,46 @@ async def admin_create_category(
         name=cat.name,
         sort_order=cat.sort_order,
     )
+
+
+@admin_router.get("/parts", response_model=list[PartListItem])
+async def admin_list_parts(
+    session: AsyncSession = Depends(get_db),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+) -> list[PartListItem]:
+    rows = await admin_products.list_parts(session, limit=limit, offset=offset)
+    return [PartListItem.model_validate(p) for p in rows]
+
+
+@admin_router.get("/products", response_model=list[ProductListItem])
+async def admin_list_products(
+    session: AsyncSession = Depends(get_db),
+    category_slug: str | None = Query(
+        None,
+        description="If set, only products in this category (by slug).",
+    ),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+) -> list[ProductListItem]:
+    rows = await admin_products.list_products(
+        session,
+        category_slug=category_slug,
+        limit=limit,
+        offset=offset,
+    )
+    return [
+        ProductListItem(
+            id=p.id,
+            category_id=p.category_id,
+            category_slug=cat_slug,
+            slug=p.slug,
+            name=p.name,
+            subtitle=p.subtitle,
+            status=enum_as_str(p.status),
+        )
+        for p, cat_slug in rows
+    ]
 
 
 @admin_router.post("/parts", response_model=CreatePartResponse, status_code=201)
@@ -128,7 +171,7 @@ async def admin_create_product(
         category_id=product.category_id,
         slug=product.slug,
         name=product.name,
-        status=str(product.status.value),
+        status=enum_as_str(product.status),
     )
 
 
