@@ -101,6 +101,7 @@ class SnapshotPartDisplay(Base):
     )
     public_code: Mapped[str] = mapped_column(String(255), nullable=False)
     public_description: Mapped[str] = mapped_column(Text, nullable=False)
+    is_orderable: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     locale: Mapped[str] = mapped_column(String(16), nullable=False, default="en")
 
     snapshot: Mapped[ProductSnapshot] = relationship(back_populates="part_displays")

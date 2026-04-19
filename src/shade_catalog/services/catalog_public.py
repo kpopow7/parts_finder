@@ -114,11 +114,11 @@ async def get_published_product_detail(
         if d.locale == locale:
             display_by_part[d.part_id] = d
 
-    def display_for(part_id: uuid.UUID) -> tuple[str, str]:
+    def display_for(part_id: uuid.UUID) -> tuple[str, str, bool]:
         d = display_by_part.get(part_id)
         if d is None:
-            return ("", "")
-        return (d.public_code, d.public_description)
+            return ("", "", True)
+        return (d.public_code, d.public_description, d.is_orderable)
 
     bom_lines = sorted(snap.bom_lines, key=lambda r: (r.sort_order, str(r.id)))
     part_ids = [row.part_id for row in bom_lines]
@@ -134,7 +134,7 @@ async def get_published_product_detail(
 
     bom_public: list[BomLinePublic] = []
     for row in bom_lines:
-        code, desc = display_for(row.part_id)
+        code, desc, orderable = display_for(row.part_id)
         img_url: str | None = None
         img_key: str | None = None
         img_ct: str | None = None
@@ -153,6 +153,7 @@ async def get_published_product_detail(
                 show_on_diagram=row.show_on_diagram,
                 public_code=code,
                 public_description=desc,
+                is_orderable=orderable,
                 part_image_asset_url_path=img_url,
                 part_image_storage_key=img_key,
                 part_image_content_type=img_ct,
@@ -162,7 +163,7 @@ async def get_published_product_detail(
     hotspots = sorted(snap.hotspots, key=lambda h: (h.z_order, str(h.id)))
     hotspot_public: list[HotspotPublic] = []
     for h in hotspots:
-        code, desc = display_for(h.part_id)
+        code, desc, orderable = display_for(h.part_id)
         hotspot_public.append(
             HotspotPublic(
                 part_id=h.part_id,
@@ -171,6 +172,7 @@ async def get_published_product_detail(
                 label_anchor=dict(h.label_anchor) if h.label_anchor else None,
                 public_code=code,
                 public_description=desc,
+                is_orderable=orderable,
             )
         )
 

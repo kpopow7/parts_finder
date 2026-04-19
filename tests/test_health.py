@@ -21,6 +21,13 @@ def test_health_ok() -> None:
     assert r.json()["status"] == "ok"
 
 
+def test_interactive_diagram_page_served() -> None:
+    r = client.get("/interactive/diagram")
+    assert r.status_code == 200
+    assert "text/html" in r.headers.get("content-type", "")
+    assert b"diagram_hotspots" in r.content or b"Interactive" in r.content
+
+
 def test_openapi_lists_v1_catalog_paths() -> None:
     r = client.get("/openapi.json")
     assert r.status_code == 200
@@ -34,6 +41,11 @@ def test_openapi_lists_v1_catalog_paths() -> None:
     assert "/api/v1/admin/parts/{part_id}" in paths
     assert "/api/v1/admin/products" in paths
     assert "get" in paths["/api/v1/admin/products"]
+    assert "/api/v1/admin/products/{product_id}/spec-imports" in paths
+    assert "/api/v1/admin/products/{product_id}/spec-imports/{import_id}" in paths
+    assert "/api/v1/admin/products/{product_id}/spec-imports/{import_id}/approve" in paths
+    assert "/api/v1/admin/products/{product_id}/spec-imports/{import_id}/reject" in paths
+    assert "/api/v1/admin/products/{product_id}/spec-imports/{import_id}/apply-to-draft" in paths
     assert "/api/v1/admin/products/{product_id}/publish" in paths
     assert "/api/v1/admin/products/{product_id}/draft" in paths
     assert "/api/v1/admin/uploads" in paths

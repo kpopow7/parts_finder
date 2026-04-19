@@ -30,7 +30,7 @@ Migrations create **empty** tables. You add rows in an order that respects forei
 | Publish snapshot | `product_snapshot`, `snapshot_bom_line`, `snapshot_part_display`, optional `snapshot_diagram`, `snapshot_diagram_hotspot` |
 | Audit | `audit_log` (e.g. on publish, draft save) |
 | Files | `uploaded_asset` (+ files under `SHADE_CATALOG_UPLOAD_DIR`) |
-| Optional | `product_draft` (WIP JSON), `product_source_document` (link product ↔ uploaded PDF/SVG) |
+| Optional | `product_draft` (WIP JSON), `product_source_document` (link product ↔ uploaded PDF/SVG), `product_spec_import` (persisted PDF parses, review, apply to draft) |
 
 ### Option A — Demo seed (single command)
 
@@ -97,8 +97,16 @@ Do these steps in order. Use `/docs` or any HTTP client; if `SHADE_CATALOG_ADMIN
 6. **`product_source_document` (optional)**  
    Upload a PDF (or reuse an asset): `POST /api/v1/admin/uploads`, then `POST /api/v1/admin/products/{product_id}/source-documents` with `{"uploaded_asset_id": "<uuid>", "title": "...", "sort_order": 0, "role": "spec"}`. This only links the file to the product; it does not fill the BOM.
 
-7. **PDF spec helper (read-only)**  
-   `GET /api/v1/admin/uploads/{uploaded_asset_id}/parse-spec` (PDF assets only) returns a first-pass structured parse (TOC, size snippets, colors, etc.). It **does not write** to Postgres; use it to assist manual data entry or a future importer.
+7. **PDF spec → persisted import (optional)**  
+   Upload the PDF (`POST /api/v1/admin/uploads`), then create a stored parse for the product:
+
+   - `POST /api/v1/admin/products/{product_id}/spec-imports` with `{"uploaded_asset_id": "<uuid>"}` — runs the parser, saves a **`product_spec_import`** row in **`pending`** status with full JSON in `parse_payload`.
+   - `GET .../spec-imports` — list imports; `GET .../spec-imports/{import_id}` — full payload.
+   - `POST .../spec-imports/{import_id}/approve` — optional query `review_notes`; moves to **`approved`**.
+   - `POST .../spec-imports/{import_id}/reject` — optional `review_notes`; **`rejected`** (terminal).
+   - `POST .../spec-imports/{import_id}/apply-to-draft` — only if **`approved`**: merges parsed text into **`search_blob`**, sets draft fields **`spec_import_id`** and **`spec_parse_data`**, marks import **`applied`** (previous **`applied`** rows for that product become **`superseded`**). Then adjust BOM/diagram in the draft and publish as usual.
+
+   **Preview without saving:** `GET /api/v1/admin/uploads/{uploaded_asset_id}/parse-spec` still returns the same shape **without** writing to Postgres.
 
 8. **`product_snapshot` + children (publish)**  
    `POST /api/v1/admin/products/{product_id}/publish` with a full `PublishSnapshotRequest` body. This is the step that creates catalog-visible data.
@@ -167,6 +175,12 @@ Protected optionally: set `SHADE_CATALOG_ADMIN_API_TOKEN` in `.env`, then send `
 | PATCH | `/api/v1/admin/parts/{part_id}` | Set or clear part photo (`image_uploaded_asset_id`: UUID or `null`) |
 | GET | `/api/v1/admin/products` | List products (`id`, `category_id`, `category_slug`, `slug`, `name`, `status`, …); optional `category_slug` filter; `limit`, `offset` |
 | POST | `/api/v1/admin/products` | Create draft KMAT in a category (`category_slug`, `slug`, `name`, …) |
+| POST | `/api/v1/admin/products/{product_id}/spec-imports` | Persist PDF parse (`uploaded_asset_id`) → `pending` row in `product_spec_import` |
+| GET | `/api/v1/admin/products/{product_id}/spec-imports` | List spec imports (status, warning count) |
+| GET | `/api/v1/admin/products/{product_id}/spec-imports/{import_id}` | Full stored `parse_payload` |
+| POST | `/api/v1/admin/products/{product_id}/spec-imports/{import_id}/approve` | Optional query `review_notes` → `approved` |
+| POST | `/api/v1/admin/products/{product_id}/spec-imports/{import_id}/reject` | Optional `review_notes` → `rejected` |
+| POST | `/api/v1/admin/products/{product_id}/spec-imports/{import_id}/apply-to-draft` | Merge into draft (`approved` only): `search_blob`, `spec_parse_data`, `spec_import_id` |
 | POST | `/api/v1/admin/products/{product_id}/publish` | Publish a new snapshot (bumps `version`), updates `current_published_snapshot_id`, appends `audit_log` |
 | POST | `/api/v1/admin/uploads` | Multipart upload: **SVG**, **PDF**, **JPEG**, or **PNG** (magic-byte sniffing); use SVG keys for published diagrams, PDF for specs, JPEG/PNG for part photos |
 | GET | `/api/v1/admin/products/{product_id}/source-documents` | List linked documents for a product |
@@ -184,7 +198,7 @@ Protected optionally: set `SHADE_CATALOG_ADMIN_API_TOKEN` in `.env`, then send `
 | GET | `/api/v1/admin/products/{product_id}/draft` | Load saved draft or empty defaults (`updated_at` null if never saved) |
 | PUT | `/api/v1/admin/products/{product_id}/draft` | Replace persisted draft (`product_draft.payload` JSONB); writes `audit_log` (`product_draft.upserted`) |
 
-Draft shape matches **work-in-progress** fields (optional diagram, empty strings allowed on labels). Publishing still uses **`POST .../publish`** with a full `PublishSnapshotRequest` body (the client can load GET draft and map it into that payload when ready).
+Draft payload may also include **`spec_import_id`** and **`spec_parse_data`** after **apply-to-draft** from an approved spec import (BOM/diagram are still edited manually or via your own tooling). Publishing still uses **`POST .../publish`** with a full `PublishSnapshotRequest` body (the client can load GET draft and map it into that payload when ready).
 
 ### Frontend (testing without a dedicated UI yet)
 

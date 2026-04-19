@@ -50,6 +50,7 @@ class BomLinePublic(BaseModel):
     show_on_diagram: bool
     public_code: str
     public_description: str
+    is_orderable: bool = True
     part_image_asset_url_path: str | None = None
     part_image_storage_key: str | None = None
     part_image_content_type: str | None = None
@@ -62,6 +63,7 @@ class HotspotPublic(BaseModel):
     label_anchor: dict | None = None
     public_code: str
     public_description: str
+    is_orderable: bool = True
 
 
 class SourceDocumentPublic(BaseModel):

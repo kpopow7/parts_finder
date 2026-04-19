@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -101,6 +102,7 @@ class PartDisplayPublishRequest(BaseModel):
     part_id: uuid.UUID
     public_code: str = Field(min_length=1, max_length=255)
     public_description: str = Field(min_length=1)
+    is_orderable: bool = True
     locale: str = Field(default="en", min_length=2, max_length=16)
 
 
@@ -150,6 +152,7 @@ class PartDisplayDraftRequest(BaseModel):
     part_id: uuid.UUID
     public_code: str = ""
     public_description: str = ""
+    is_orderable: bool = True
     locale: str = Field(default="en", min_length=2, max_length=16)
 
 
@@ -169,6 +172,8 @@ class ProductDraftPayload(BaseModel):
     bill_of_materials: list[BomLineDraftRequest] = Field(default_factory=list)
     part_displays: list[PartDisplayDraftRequest] = Field(default_factory=list)
     diagram_hotspots: list[HotspotDraftRequest] = Field(default_factory=list)
+    spec_import_id: uuid.UUID | None = None
+    spec_parse_data: dict[str, Any] | None = None
 
 
 class ProductDraftDocument(BaseModel):
@@ -238,3 +243,28 @@ class ParseSpecResponse(BaseModel):
     bottom_rail_color_pairs: list[ParsedColorPairResponse]
     price_chart_color_map: list[ParsedPriceChartColorMapResponse]
     warnings: list[str]
+
+
+class CreateSpecImportRequest(BaseModel):
+    uploaded_asset_id: uuid.UUID
+
+
+class SpecImportSummary(BaseModel):
+    id: uuid.UUID
+    product_id: uuid.UUID
+    uploaded_asset_id: uuid.UUID
+    status: str
+    created_at: datetime
+    reviewed_at: datetime | None = None
+    parser_warning_count: int = 0
+
+
+class SpecImportDetail(BaseModel):
+    id: uuid.UUID
+    product_id: uuid.UUID
+    uploaded_asset_id: uuid.UUID
+    status: str
+    parse_payload: dict[str, Any]
+    created_at: datetime
+    reviewed_at: datetime | None = None
+    review_notes: str | None = None

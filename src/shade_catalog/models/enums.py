@@ -32,3 +32,13 @@ class UserRole(str, Enum):
     OWNER = "owner"
     EDITOR = "editor"
     VIEWER = "viewer"
+
+
+class SpecImportStatus(str, Enum):
+    """Persisted PDF spec parse workflow for a product."""
+
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    APPLIED = "applied"
+    SUPERSEDED = "superseded"

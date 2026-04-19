@@ -12,11 +12,13 @@ from datetime import datetime, timezone
 
 from sqlalchemy import select
 
+from shade_catalog.core.config import get_settings
 from shade_catalog.db.session import AsyncSessionLocal
 from shade_catalog.models.category import Category
 from shade_catalog.models.enums import PartStatus, ProductStatus
 from shade_catalog.models.part import Part
 from shade_catalog.models.product import Product
+from shade_catalog.models.uploaded_asset import UploadedAsset, UploadedAssetKind
 from shade_catalog.models.snapshot import (
     ProductSnapshot,
     SnapshotBomLine,
@@ -24,6 +26,7 @@ from shade_catalog.models.snapshot import (
     SnapshotDiagramHotspot,
     SnapshotPartDisplay,
 )
+from shade_catalog.services.local_storage import build_storage_key, write_bytes
 
 CATEGORY_SLUG = "metal-blinds"
 PRODUCT_SLUG = "standard-metal-blind"
@@ -95,6 +98,28 @@ async def seed() -> None:
             ("C", "Headrail", "Blind"),
             ("D", "Slat", "Blind"),
         ]
+        settings = get_settings()
+        svg_key, svg_name = build_storage_key(UploadedAssetKind.SVG)
+        demo_svg = b"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Exploded diagram">
+  <title>Exploded view</title>
+  <rect width="100" height="100" fill="#f4f4f5"/>
+  <rect x="2" y="28" width="20" height="38" rx="1" fill="#c7d2fe" stroke="#3730a3" stroke-width="0.4"/>
+  <rect x="26" y="28" width="18" height="32" rx="1" fill="#a5b4fc" stroke="#3730a3" stroke-width="0.4"/>
+  <rect x="48" y="24" width="24" height="30" rx="1" fill="#93c5fd" stroke="#1d4ed8" stroke-width="0.4"/>
+  <rect x="74" y="30" width="22" height="26" rx="1" fill="#bfdbfe" stroke="#1d4ed8" stroke-width="0.4"/>
+</svg>"""
+        write_bytes(settings.upload_dir, svg_key, demo_svg)
+        session.add(
+            UploadedAsset(
+                id=uuid.uuid4(),
+                storage_key=svg_key,
+                kind=UploadedAssetKind.SVG,
+                original_filename=svg_name,
+                content_type="image/svg+xml",
+                byte_size=len(demo_svg),
+            )
+        )
+
         for i, part in enumerate(parts):
             code, desc, group = friendly[i]
             session.add(
@@ -115,6 +140,7 @@ async def seed() -> None:
                     part_id=part.id,
                     public_code=code,
                     public_description=desc,
+                    is_orderable=(i != 3),
                     locale="en",
                 )
             )
@@ -123,7 +149,7 @@ async def seed() -> None:
             SnapshotDiagram(
                 id=uuid.uuid4(),
                 snapshot_id=snapshot.id,
-                svg_storage_key="demo/metal-blinds/exploded.svg",
+                svg_storage_key=svg_key,
                 raster_fallback_storage_key=None,
                 diagram_title="Exploded view — standard metal blind",
                 alt_summary=(
@@ -132,11 +158,12 @@ async def seed() -> None:
             )
         )
 
+        # Geometry is relative to the diagram image box: x/y/width/height as percentages 0–100.
         rects = [
-            {"type": "rect", "x": 10, "y": 20, "width": 80, "height": 40},
-            {"type": "rect", "x": 110, "y": 20, "width": 70, "height": 35},
-            {"type": "rect", "x": 210, "y": 15, "width": 120, "height": 25},
-            {"type": "rect", "x": 360, "y": 30, "width": 90, "height": 20},
+            {"type": "rect", "x": 2, "y": 28, "width": 20, "height": 38},
+            {"type": "rect", "x": 26, "y": 28, "width": 18, "height": 32},
+            {"type": "rect", "x": 48, "y": 24, "width": 24, "height": 30},
+            {"type": "rect", "x": 74, "y": 30, "width": 22, "height": 26},
         ]
         for i, part in enumerate(parts):
             session.add(
@@ -146,7 +173,7 @@ async def seed() -> None:
                     part_id=part.id,
                     geometry=rects[i],
                     z_order=(i + 1) * 10,
-                    label_anchor={"x": rects[i]["x"], "y": rects[i]["y"] - 8},
+                    label_anchor={"x": rects[i]["x"], "y": max(0, rects[i]["y"] - 6)},
                 )
             )
 

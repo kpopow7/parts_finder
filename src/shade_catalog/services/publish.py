@@ -101,6 +101,7 @@ async def publish_snapshot(
                 part_id=d.part_id,
                 public_code=d.public_code,
                 public_description=d.public_description,
+                is_orderable=d.is_orderable,
                 locale=d.locale,
             )
         )

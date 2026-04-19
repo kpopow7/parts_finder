@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from shade_catalog.api.deps import require_admin
 from shade_catalog.db.session import get_db
 from shade_catalog.models.enums import enum_as_str
+from shade_catalog.models.product_spec_import import ProductSpecImport
 from shade_catalog.schemas.admin import (
     CreateCategoryRequest,
     CreateCategoryResponse,
@@ -16,19 +17,22 @@ from shade_catalog.schemas.admin import (
     CreatePartResponse,
     CreateProductRequest,
     CreateProductResponse,
+    CreateSpecImportRequest,
     PartListItem,
-    ProductListItem,
-    UpdatePartRequest,
     ParseSpecResponse,
     ProductDraftDocument,
     ProductDraftPayload,
+    ProductListItem,
     ProductSourceDocumentResponse,
     PublishSnapshotRequest,
     PublishSnapshotResponse,
     SourceDocumentCreateRequest,
+    SpecImportDetail,
+    SpecImportSummary,
+    UpdatePartRequest,
     UploadAssetResponse,
 )
-from shade_catalog.services import admin_products, source_documents_admin, spec_parser, upload_assets
+from shade_catalog.services import admin_products, source_documents_admin, spec_import_admin, spec_parser, upload_assets
 from shade_catalog.services import product_draft as product_draft_service
 from shade_catalog.services.publish import (
     ProductNotFoundError,
@@ -173,6 +177,166 @@ async def admin_create_product(
         name=product.name,
         status=enum_as_str(product.status),
     )
+
+
+def _spec_row_to_detail(row: ProductSpecImport) -> SpecImportDetail:
+    return SpecImportDetail(
+        id=row.id,
+        product_id=row.product_id,
+        uploaded_asset_id=row.uploaded_asset_id,
+        status=enum_as_str(row.status),
+        parse_payload=row.parse_payload,
+        created_at=row.created_at,
+        reviewed_at=row.reviewed_at,
+        review_notes=row.review_notes,
+    )
+
+
+def _spec_row_to_summary(row: ProductSpecImport) -> SpecImportSummary:
+    payload = row.parse_payload if isinstance(row.parse_payload, dict) else {}
+    w = payload.get("warnings")
+    n = len(w) if isinstance(w, list) else 0
+    return SpecImportSummary(
+        id=row.id,
+        product_id=row.product_id,
+        uploaded_asset_id=row.uploaded_asset_id,
+        status=enum_as_str(row.status),
+        created_at=row.created_at,
+        reviewed_at=row.reviewed_at,
+        parser_warning_count=n,
+    )
+
+
+@admin_router.post(
+    "/products/{product_id}/spec-imports",
+    response_model=SpecImportDetail,
+    status_code=201,
+)
+async def admin_create_spec_import(
+    product_id: uuid.UUID,
+    body: CreateSpecImportRequest,
+    session: AsyncSession = Depends(get_db),
+) -> SpecImportDetail:
+    try:
+        async with session.begin():
+            row = await spec_import_admin.create_spec_import(
+                session,
+                product_id=product_id,
+                uploaded_asset_id=body.uploaded_asset_id,
+            )
+    except ProductNotFoundError as e:
+        raise HTTPException(status_code=404, detail="Product not found") from e
+    except spec_import_admin.SpecImportError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return _spec_row_to_detail(row)
+
+
+@admin_router.get(
+    "/products/{product_id}/spec-imports",
+    response_model=list[SpecImportSummary],
+)
+async def admin_list_spec_imports(
+    product_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db),
+) -> list[SpecImportSummary]:
+    try:
+        rows = await spec_import_admin.list_spec_imports(session, product_id=product_id)
+    except ProductNotFoundError as e:
+        raise HTTPException(status_code=404, detail="Product not found") from e
+    return [_spec_row_to_summary(r) for r in rows]
+
+
+@admin_router.get(
+    "/products/{product_id}/spec-imports/{import_id}",
+    response_model=SpecImportDetail,
+)
+async def admin_get_spec_import(
+    product_id: uuid.UUID,
+    import_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db),
+) -> SpecImportDetail:
+    try:
+        row = await spec_import_admin.get_spec_import(
+            session, product_id=product_id, import_id=import_id
+        )
+    except spec_import_admin.SpecImportNotFoundError as e:
+        raise HTTPException(status_code=404, detail="Spec import not found") from e
+    return _spec_row_to_detail(row)
+
+
+@admin_router.post(
+    "/products/{product_id}/spec-imports/{import_id}/approve",
+    response_model=SpecImportDetail,
+)
+async def admin_approve_spec_import(
+    product_id: uuid.UUID,
+    import_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db),
+    review_notes: str | None = Query(None, max_length=4000),
+) -> SpecImportDetail:
+    try:
+        async with session.begin():
+            row = await spec_import_admin.approve_spec_import(
+                session,
+                product_id=product_id,
+                import_id=import_id,
+                review_notes=review_notes,
+            )
+    except spec_import_admin.SpecImportNotFoundError as e:
+        raise HTTPException(status_code=404, detail="Spec import not found") from e
+    except spec_import_admin.SpecImportError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return _spec_row_to_detail(row)
+
+
+@admin_router.post(
+    "/products/{product_id}/spec-imports/{import_id}/reject",
+    response_model=SpecImportDetail,
+)
+async def admin_reject_spec_import(
+    product_id: uuid.UUID,
+    import_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db),
+    review_notes: str | None = Query(None, max_length=4000),
+) -> SpecImportDetail:
+    try:
+        async with session.begin():
+            row = await spec_import_admin.reject_spec_import(
+                session,
+                product_id=product_id,
+                import_id=import_id,
+                review_notes=review_notes,
+            )
+    except spec_import_admin.SpecImportNotFoundError as e:
+        raise HTTPException(status_code=404, detail="Spec import not found") from e
+    except spec_import_admin.SpecImportError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return _spec_row_to_detail(row)
+
+
+@admin_router.post(
+    "/products/{product_id}/spec-imports/{import_id}/apply-to-draft",
+    response_model=SpecImportDetail,
+)
+async def admin_apply_spec_import_to_draft(
+    product_id: uuid.UUID,
+    import_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db),
+) -> SpecImportDetail:
+    try:
+        async with session.begin():
+            row = await spec_import_admin.apply_spec_import_to_draft(
+                session,
+                product_id=product_id,
+                import_id=import_id,
+            )
+    except spec_import_admin.SpecImportNotFoundError as e:
+        raise HTTPException(status_code=404, detail="Spec import not found") from e
+    except spec_import_admin.SpecImportError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except ProductNotFoundError as e:
+        raise HTTPException(status_code=404, detail="Product not found") from e
+    return _spec_row_to_detail(row)
 
 
 @admin_router.get(

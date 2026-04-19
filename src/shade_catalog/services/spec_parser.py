@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import dataclasses
+import json
 import re
 import uuid
 from dataclasses import dataclass
@@ -47,6 +49,11 @@ class ParsedSpecResult:
 
 class SpecParserError(ValueError):
     pass
+
+
+def parsed_spec_result_to_jsonable(result: ParsedSpecResult) -> dict:
+    """Serialize a parse result for JSONB storage (UUIDs and nested dataclasses)."""
+    return json.loads(json.dumps(dataclasses.asdict(result), default=str))
 
 
 async def parse_uploaded_spec_pdf(

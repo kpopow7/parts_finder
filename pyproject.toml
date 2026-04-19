@@ -7,7 +7,7 @@ name = "shade-product-catalog"
 version = "0.1.0"
 description = "Product catalog API (KMAT diagrams, BOM, published snapshots)"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.14"
 dependencies = [
     "fastapi>=0.115.0",
     "python-multipart>=0.0.9",
@@ -33,7 +33,8 @@ where = ["src"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py314"
+preview = true
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
