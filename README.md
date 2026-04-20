@@ -200,18 +200,20 @@ Protected optionally: set `SHADE_CATALOG_ADMIN_API_TOKEN` in `.env`, then send `
 
 Draft payload may also include **`spec_import_id`** and **`spec_parse_data`** after **apply-to-draft** from an approved spec import (BOM/diagram are still edited manually or via your own tooling). Publishing still uses **`POST .../publish`** with a full `PublishSnapshotRequest` body (the client can load GET draft and map it into that payload when ready).
 
-### Frontend (testing without a dedicated UI yet)
+### Web UI (Vite + React)
 
-This repo is **API-only** right now. You can exercise everything in three ways:
+The **`frontend/`** app is a separate dev server (default port **5173**) with two areas:
 
-1. **Swagger UI** — with the server running, open `/docs`, authorize if `SHADE_CATALOG_ADMIN_API_TOKEN` is set, then try search, uploads, and admin routes.
-2. **curl / PowerShell** — e.g. `GET http://127.0.0.1:8000/api/v1/search?q=metal` and multipart `POST` to `/api/v1/admin/uploads`.
-3. **A separate SPA** (e.g. Vite + React on port 5173) — set in `.env`:
-   - `SHADE_CATALOG_CORS_ALLOW_ORIGINS=http://localhost:5173,http://127.0.0.1:5173`
-   - Point `fetch` / axios at `http://127.0.0.1:8000` (or your API host).
-   - Use **`asset_url_path`** from product detail as the path part of the URL (prepend the API origin), or build `GET /api/v1/assets/{storage_key}` yourself for SVG `<img src>` / PDF links.
+- **Public** — categories, search, product detail with interactive diagram + BOM.
+- **Admin** — categories, parts, file uploads, products, draft JSON editor, and publish (JSON body).
 
-**What a real frontend still needs:** pages for category → product → diagram/BOM, search box calling `/api/v1/search`, admin screens for draft/publish (or internal tools only), and optional auth UI if you lock down admin with a token.
+From `frontend/`: `npm install` then `npm run dev`. In the API `.env`, allow the dev origin:
+
+`SHADE_CATALOG_CORS_ALLOW_ORIGINS=http://localhost:5173,http://127.0.0.1:5173`
+
+Vite proxies `/api` to `http://127.0.0.1:8000`, so you still run **`uvicorn`** on port 8000. See **`frontend/README.md`** for admin token and production builds.
+
+You can also use **Swagger UI** (`/docs`), **curl**, or any other HTTP client against the same API.
 
 ### Tests
 
