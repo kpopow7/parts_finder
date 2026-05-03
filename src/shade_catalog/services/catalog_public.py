@@ -10,6 +10,7 @@ from shade_catalog.models.category import Category
 from shade_catalog.models.enums import ProductStatus
 from shade_catalog.models.part import Part
 from shade_catalog.models.product import Product
+from shade_catalog.models.product_source_document import ProductSourceDocument
 from shade_catalog.models.snapshot import ProductSnapshot, SnapshotPartDisplay
 from shade_catalog.schemas.catalog import (
     BomLinePublic,
@@ -98,7 +99,9 @@ async def get_published_product_detail(
             ),
             selectinload(Product.current_published_snapshot).selectinload(ProductSnapshot.diagram),
             selectinload(Product.current_published_snapshot).selectinload(ProductSnapshot.hotspots),
-            selectinload(Product.source_documents).selectinload("uploaded_asset"),
+            selectinload(Product.source_documents).selectinload(
+                ProductSourceDocument.uploaded_asset
+            ),
         )
     )
     product = (await session.scalars(stmt)).first()

@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { apiFetch, readError } from "@/api/client";
 import type { ProductDraftDocument, ProductListItem } from "@/api/types";
+import { PublishWizard } from "./publish/PublishWizard";
 
 export function ProductWorkspace() {
   const { productId = "" } = useParams();
   const [product, setProduct] = useState<ProductListItem | null | undefined>(undefined);
   const [draftJson, setDraftJson] = useState("");
+  const [draftPayload, setDraftPayload] = useState<Record<string, unknown> | null>(null);
   const [publishJson, setPublishJson] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -39,6 +41,9 @@ export function ProductWorkspace() {
       const doc = (await res.json()) as ProductDraftDocument;
       if (!cancelled) {
         setDraftJson(JSON.stringify(doc.payload ?? {}, null, 2));
+        setDraftPayload(
+          (doc.payload && typeof doc.payload === "object" ? doc.payload : {}) as Record<string, unknown>,
+        );
         setErr(null);
       }
     })();
@@ -72,6 +77,32 @@ export function ProductWorkspace() {
     }
     setErr(null);
     setMsg("Draft saved.");
+    try {
+      setDraftPayload(JSON.parse(draftJson) as Record<string, unknown>);
+    } catch {
+      /* keep prior payload */
+    }
+  }
+
+  async function resetDraftFromPublished() {
+    setMsg(null);
+    setErr(null);
+    const res = await apiFetch(
+      "/api/v1/admin/products/" + encodeURIComponent(productId) + "/draft/reset-from-published",
+      {
+        method: "POST",
+        admin: true,
+      },
+    );
+    if (!res.ok) {
+      setErr(await readError(res));
+      return;
+    }
+    const doc = (await res.json()) as ProductDraftDocument;
+    const payload = (doc.payload ?? {}) as Record<string, unknown>;
+    setDraftPayload(payload);
+    setDraftJson(JSON.stringify(payload, null, 2));
+    setMsg("Draft reset from current published snapshot.");
   }
 
   async function publish(e: React.FormEvent) {
@@ -118,11 +149,21 @@ export function ProductWorkspace() {
       {err ? <p className="error">{err}</p> : null}
       {msg ? <p style={{ color: "var(--accent)" }}>{msg}</p> : null}
 
+      <PublishWizard
+        productId={productId}
+        draftPayload={draftPayload}
+        onPublished={(v) => setMsg(`Published snapshot version ${v}. Public catalog will show the new data after refresh.`)}
+        onDraftSaved={(doc) => {
+          const p = (doc.payload ?? {}) as Record<string, unknown>;
+          setDraftPayload(p);
+          setDraftJson(JSON.stringify(p, null, 2));
+        }}
+      />
+
       <div className="card">
-        <h2>Draft payload</h2>
+        <h2>Draft JSON (advanced)</h2>
         <p className="muted" style={{ fontSize: "0.88rem" }}>
-          Edit JSON (BOM, diagram keys, hotspots, part displays). See OpenAPI schema{" "}
-          <code>ProductDraftPayload</code>.
+          Edit raw <code>ProductDraftPayload</code> when the wizard is not enough.
         </p>
         <form onSubmit={saveDraft}>
           <textarea
@@ -134,14 +175,22 @@ export function ProductWorkspace() {
           <button type="submit" className="btn btn-primary" style={{ marginTop: "0.5rem" }}>
             Save draft
           </button>
+          <button
+            type="button"
+            className="btn"
+            style={{ marginTop: "0.5rem", marginLeft: "0.5rem" }}
+            onClick={resetDraftFromPublished}
+          >
+            Reset draft from published snapshot
+          </button>
         </form>
       </div>
 
       <div className="card">
-        <h2>Publish snapshot</h2>
+        <h2>Publish via raw JSON (advanced)</h2>
         <p className="muted" style={{ fontSize: "0.88rem" }}>
-          POST a full <code>PublishSnapshotRequest</code> body (bill_of_materials, part_displays,
-          optional diagram, diagram_hotspots). Example available in README / OpenAPI.
+          Optional: paste a full <code>PublishSnapshotRequest</code> (same as OpenAPI) if you
+          already have a generated body.
         </p>
         <form onSubmit={publish}>
           <textarea

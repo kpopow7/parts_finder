@@ -374,6 +374,26 @@ async def admin_put_product_draft(
 
 
 @admin_router.post(
+    "/products/{product_id}/draft/reset-from-published",
+    response_model=ProductDraftDocument,
+)
+async def admin_reset_product_draft_from_published(
+    product_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db),
+) -> ProductDraftDocument:
+    try:
+        async with session.begin():
+            return await product_draft_service.reset_product_draft_from_published_snapshot(
+                session,
+                product_id=product_id,
+            )
+    except ProductNotFoundError as e:
+        raise HTTPException(status_code=404, detail="Product not found") from e
+    except product_draft_service.ProductHasNoPublishedSnapshotError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@admin_router.post(
     "/products/{product_id}/publish",
     response_model=PublishSnapshotResponse,
     status_code=201,

@@ -5,7 +5,7 @@ Vite + React + TypeScript. Two experiences:
 | Area   | Routes   | Purpose |
 |--------|----------|---------|
 | Public | `/`, `/search`, `/c/:categorySlug`, `/c/.../p/:productSlug` | Browse published catalog, search, product detail + clickable diagram |
-| Admin  | `/admin`, `/admin/categories`, … | Manage categories, parts, uploads, product drafts, publish (JSON) |
+| Admin  | `/admin`, `/admin/categories`, … | Manage categories, parts, uploads, product drafts, **multi-step publish wizard** (or raw JSON) |
 
 ## Development
 

@@ -119,6 +119,53 @@ Do these steps in order. Use `/docs` or any HTTP client; if `SHADE_CATALOG_ADMIN
    - `diagram_hotspots` — optional; each `part_id` must appear in the BOM.
    - Optional top-level fields: `publish_notes`, `search_blob` (useful for `/api/v1/search`).
 
+   **How to populate `diagram_hotspots` (detailed):**
+
+   Each hotspot row links one visual region in the diagram to a BOM part:
+
+   - `part_id` — UUID of a part present in `bill_of_materials`.
+   - `z_order` — render stacking order (higher values draw on top).
+   - `geometry` — JSON object describing the clickable shape.
+   - `label_anchor` — optional `{ "x": <number>, "y": <number> }` for label positioning.
+
+   **Coordinate system:** use percentages relative to the rendered diagram image box (**0–100** for x/y/width/height/r). This keeps hotspots aligned when the image scales.
+
+   **Supported geometry patterns (recommended):**
+
+   1. Rectangle (most common)
+
+   ```json
+   {
+     "part_id": "11111111-1111-1111-1111-111111111111",
+     "z_order": 10,
+     "geometry": { "type": "rect", "x": 24, "y": 30, "width": 18, "height": 22 },
+     "label_anchor": { "x": 24, "y": 26 }
+   }
+   ```
+
+   2. Circle
+
+   ```json
+   {
+     "part_id": "22222222-2222-2222-2222-222222222222",
+     "z_order": 20,
+     "geometry": { "type": "circle", "cx": 72, "cy": 40, "r": 6 },
+     "label_anchor": { "x": 72, "y": 32 }
+   }
+   ```
+
+   3. Custom shape JSON
+
+   You can store any JSON object in `geometry` if your frontend understands it. The built-in UI currently handles `rect` and `circle`; unknown shapes are ignored by that UI but still stored in the snapshot.
+
+   **Authoring tips:**
+
+   - Start with broad rectangles, then tighten boundaries.
+   - Keep `z_order` spaced (`10, 20, 30...`) so later insertions are easy.
+   - If a part is in the BOM but not intended for the diagram, omit its hotspot.
+   - Use `show_on_diagram=false` on BOM lines that should not be shown visually.
+   - If publish fails with a hotspot validation error, verify every hotspot `part_id` appears in the BOM exactly as sent.
+
    **What publish writes:** a new `product_snapshot` row (version increments), `snapshot_bom_line` and `snapshot_part_display` rows for that snapshot, optional `snapshot_diagram` / `snapshot_diagram_hotspot`, updates `product` to **published** and sets `current_published_snapshot_id`, and appends `audit_log`.
 
 9. **Later changes**  

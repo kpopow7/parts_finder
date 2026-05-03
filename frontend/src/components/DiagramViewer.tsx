@@ -2,6 +2,68 @@ import { useEffect, useState, type CSSProperties } from "react";
 import type { HotspotPublic } from "@/api/types";
 import { apiUrl } from "@/api/client";
 
+function toFiniteNumber(v: unknown): number | null {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string" && v.trim() !== "") {
+    const n = Number(v);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+}
+
+function asGeometryRecord(raw: unknown): Record<string, unknown> | null {
+  if (raw !== null && typeof raw === "object" && !Array.isArray(raw)) {
+    return raw as Record<string, unknown>;
+  }
+  if (typeof raw === "string") {
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      return asGeometryRecord(parsed);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/** Accept API/draft geometry with numeric fields as strings; tolerate missing `type`. */
+function normalizeHotspotGeometry(geometry: unknown):
+  | { kind: "rect"; x: number; y: number; width: number; height: number }
+  | { kind: "circle"; cx: number; cy: number; r: number }
+  | null {
+  const g = asGeometryRecord(geometry);
+  if (!g) return null;
+
+  const typeRaw = g.type;
+  const typeStr = typeof typeRaw === "string" ? typeRaw.toLowerCase().trim() : "";
+
+  const cx = toFiniteNumber(g.cx);
+  const cy = toFiniteNumber(g.cy);
+  const r = toFiniteNumber(g.r);
+  const x = toFiniteNumber(g.x);
+  const y = toFiniteNumber(g.y);
+  const width = toFiniteNumber(g.width);
+  const height = toFiniteNumber(g.height);
+
+  if (typeStr === "circle" || (typeStr !== "rect" && cx !== null && r !== null)) {
+    if (cx === null || r === null) return null;
+    return { kind: "circle", cx, cy: cy !== null ? cy : 50, r };
+  }
+
+  if (typeStr === "rect" || (x !== null && y !== null)) {
+    if (x === null || y === null) return null;
+    return {
+      kind: "rect",
+      x,
+      y,
+      width: width !== null ? width : 0,
+      height: height !== null ? height : 0,
+    };
+  }
+
+  return null;
+}
+
 type Props = {
   svgStorageKey: string | null;
   rasterKey: string | null;
@@ -48,22 +110,14 @@ export function DiagramViewer({ svgStorageKey, rasterKey, alt, hotspots, title }
         <div className="hotspot-layer" aria-hidden="true">
           {hotspots
             .slice()
-            .sort((a, b) => a.z_order - b.z_order)
-            .map((spot) => {
-              const g = spot.geometry as {
-                type?: string;
-                x?: number;
-                y?: number;
-                width?: number;
-                height?: number;
-                cx?: number;
-                cy?: number;
-                r?: number;
-              };
+            .sort((a, b) => (Number(a.z_order) || 0) - (Number(b.z_order) || 0))
+            .map((spot, idx) => {
+              const g = normalizeHotspotGeometry(spot.geometry);
+              const z = Number(spot.z_order);
               const style: CSSProperties = {
-                zIndex: 10 + spot.z_order,
+                zIndex: 10 + (Number.isFinite(z) ? z : 0),
               };
-              if (g.type === "circle" && typeof g.cx === "number" && typeof g.r === "number") {
+              if (g?.kind === "circle") {
                 const d = g.r * 2;
                 Object.assign(style, {
                   left: `${g.cx - g.r}%`,
@@ -71,27 +125,23 @@ export function DiagramViewer({ svgStorageKey, rasterKey, alt, hotspots, title }
                   width: `${d}%`,
                   height: `${d}%`,
                 });
-              } else if (
-                g.type === "rect" &&
-                typeof g.x === "number" &&
-                typeof g.y === "number"
-              ) {
+              } else if (g?.kind === "rect") {
                 Object.assign(style, {
                   left: `${g.x}%`,
                   top: `${g.y}%`,
-                  width: `${g.width ?? 0}%`,
-                  height: `${g.height ?? 0}%`,
+                  width: `${g.width}%`,
+                  height: `${g.height}%`,
                 });
               } else {
                 return null;
               }
               return (
                 <button
-                  key={`${spot.part_id}-${spot.z_order}`}
+                  key={`${spot.part_id}-${idx}`}
                   type="button"
                   className={
                     "hotspot-btn" +
-                    (g.type === "circle" ? " circle" : "") +
+                    (g.kind === "circle" ? " circle" : "") +
                     (selected === spot.part_id ? " selected" : "")
                   }
                   style={style}
